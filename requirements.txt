@@ -1,0 +1,9 @@
+# requirements.txt
+yfinance
+pandas
+numpy
+scikit-learn
+tensorflow
+joblib
+nltk
+flask

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Recommendation</title>
+  </head>
+  <body>
+    <h1>Recommendation: {{ signal }}</h1>
+    <ul>
+      <li><strong>Current Close:</strong> ${{ current }}</li>
+      <li><strong>Predicted Close:</strong> ${{ predicted }}</li>
+      <li><strong>Change:</strong> {{ pct }}%</li>
+    </ul>
+    <p>{{ advice|safe }}</p>
+    <p><a href="{{ url_for('index') }}">← Back</a></p>
+  </body>
+</html>
