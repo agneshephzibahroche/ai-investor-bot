@@ -1,5 +1,3 @@
-# src/advisor.py
-
 import pandas as pd
 from nltk.sentiment import SentimentIntensityAnalyzer
 
@@ -7,7 +5,11 @@ sia = SentimentIntensityAnalyzer()
 
 
 def get_signal(current: float, predicted: float, threshold: float = 0.02):
+    # Ensure scalar floats
+    current = float(current)
+    predicted = float(predicted)
     pct = (predicted - current) / current
+
     if pct > threshold:
         return "Buy", pct
     elif pct < -threshold:
@@ -63,13 +65,17 @@ def format_advice(current: float,
         f"This decision is based on indicators: {', '.join(reasoning)}."
     )
 
+
 def compute_last_indicators(df: pd.DataFrame) -> dict:
+    """
+    Always return Python floats for safety.
+    """
     return {
         "Close": float(df["Close"].iloc[-1]),
-        "MA50":  float(df["MA50"].iloc[-1]),
+        "MA50": float(df["MA50"].iloc[-1]),
         "MA200": float(df["MA200"].iloc[-1]),
-        "MACD":  float(df["MACD"].iloc[-1]),
-        "RSI":   float(df["RSI"].iloc[-1]),
+        "MACD": float(df["MACD"].iloc[-1]),
+        "RSI": float(df["RSI"].iloc[-1]),
     }
 
 
@@ -80,14 +86,3 @@ def fetch_news_sentiment(ticker: str) -> float:
     headlines = [f"Company {ticker} sees record revenue growth"]
     text = " ".join(headlines)
     return sia.polarity_scores(text)["compound"]
-
-
-if __name__ == "__main__":
-    from src.inference import predict_next_price
-
-    threshold = 0.02
-    current, pred = predict_next_price()
-    signal, pct = get_signal(current, pred, threshold)
-    fake_inds = {"Close": current, "MA50": current * 0.95, "MA200": current * 1.05, "MACD": -0.5, "RSI": 35}
-    advice = format_advice(current, pred, pct, signal, fake_inds, sentiment=0.0, threshold=threshold)
-    print(advice)

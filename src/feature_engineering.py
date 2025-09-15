@@ -5,28 +5,40 @@ import argparse
 
 import pandas as pd
 import yfinance as yf
+import numpy as np
 
 
 def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    # 1. Returns
+    # Daily returns
     df['Return'] = df['Close'].pct_change()
-    # 2. Moving Averages
-    df['MA50']  = df['Close'].rolling(50).mean()
-    df['MA200'] = df['Close'].rolling(200).mean()
-    # 3. MACD + signal line
+
+    # Moving averages
+    df['MA50']  = df['Close'].rolling(window=50).mean()
+    df['MA200'] = df['Close'].rolling(window=200).mean()
+
+    # MACD + Signal
     ema12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema26 = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD']   = ema12 - ema26
-    df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-    # 4. RSI
-    delta     = df['Close'].diff()
-    gain      = delta.clip(lower=0)
-    loss      = -delta.clip(upper=0)
-    avg_gain  = gain.rolling(14).mean()
-    avg_loss  = loss.rolling(14).mean()
-    rs        = avg_gain / avg_loss
+    df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()   # ✅ NEW
+
+    # RSI (14-day)
+    delta = df['Close'].diff()
+    gain  = delta.where(delta > 0, 0)
+    loss  = -delta.where(delta < 0, 0)
+    avg_gain = gain.rolling(window=14).mean()
+    avg_loss = loss.rolling(window=14).mean()
+    rs  = avg_gain / avg_loss
     df['RSI'] = 100 - (100 / (1 + rs))
+
     return df
+
+def compute_rsi(series: pd.Series, period: int = 14) -> pd.Series:
+    delta = series.diff()
+    gain  = (delta.where(delta > 0, 0)).rolling(period).mean()
+    loss  = (-delta.where(delta < 0, 0)).rolling(period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
 
 
 def main():

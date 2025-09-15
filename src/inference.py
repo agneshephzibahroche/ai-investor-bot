@@ -1,3 +1,5 @@
+# src/inference.py
+
 import os
 import joblib
 import numpy as np
@@ -12,30 +14,20 @@ ROOT_DIR    = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)
 SEQ_LENGTH  = 60
 MODEL_DIR   = os.path.join(ROOT_DIR, "models")
 
-
 def load_resources(ticker: str):
-    """
-    Load the trained scaler(s) and model for the given ticker.
-    Returns:
-        scaler_all   : MinMaxScaler fitted on all features
-        scaler_close : MinMaxScaler fitted only on Close column
-        model        : Trained LSTM model
-    """
+    """Load scalers and LSTM model for a specific ticker."""
     scaler_all   = joblib.load(os.path.join(MODEL_DIR, f"scaler_{ticker}.save"))
     scaler_close = joblib.load(os.path.join(MODEL_DIR, f"scaler_close_{ticker}.save"))
-    model        = load_model(os.path.join(MODEL_DIR, f"lstm_{ticker}.h5"))
+    model = load_model(os.path.join(MODEL_DIR, f"lstm_{ticker}.h5"), compile=False)
     return scaler_all, scaler_close, model
 
 
 def fetch_and_prepare(ticker: str):
-    """
-    Download stock history, compute indicators, drop NaNs,
-    and return last SEQ_LENGTH rows of features.
-    """
+    """Download data and compute features for the given ticker."""
     lookback = SEQ_LENGTH + 200
-    days = lookback * 2
-    end   = datetime.today()
-    start = end - timedelta(days=days)
+    days     = lookback * 2
+    end      = datetime.today()
+    start    = end - timedelta(days=days)
 
     df = yf.download(
         ticker,
@@ -60,21 +52,30 @@ def recursive_forecast(features: np.ndarray,
                        scaler_close,
                        model,
                        horizon_days: int):
+    """
+    Forecast future prices day by day using the trained LSTM.
+    Adds sanity checks to avoid negative or unrealistic outputs.
+    """
     window = features.copy()
     preds  = []
+
+    last_close = window[-1, 0]  # last actual close price
 
     for _ in range(horizon_days):
         scaled_win  = scaler_all.transform(window)
         X           = scaled_win.reshape(1, SEQ_LENGTH, -1)
+
         scaled_pred = model.predict(X, verbose=0)[0, 0]
+        inv         = scaler_close.inverse_transform([[scaled_pred]])[0, 0]
 
-        # ✅ Inverse transform with clipping
-        inv = scaler_close.inverse_transform([[scaled_pred]])[0, 0]
-        inv = max(0, inv)  # no negatives allowed
+        # ✅ Clamp: no negatives, and no >3× or <⅓× last_close
+        if inv < 0:
+            inv = max(inv, 0.01)
+        inv = np.clip(inv, last_close * 0.33, last_close * 3.0)
 
-        preds.append(inv)
+        preds.append(float(inv))
 
-        # Update window with new predicted close
+        # update for next step
         new_row = window[-1].copy()
         new_row[0] = inv
         window = np.vstack([window[1:], new_row])

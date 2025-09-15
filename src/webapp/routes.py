@@ -12,7 +12,7 @@ from src.webapp.models import db, Query
 from src.inference import ROOT_DIR, load_resources, fetch_and_prepare, recursive_forecast
 from src.advisor   import get_signal, format_advice, compute_last_indicators
 
-# ---------- USE LOCAL MODELS TO POPULATE TICKERS (no internet needed) ----------
+# ---------- USE LOCAL MODELS TO POPULATE TICKERS ----------
 MODEL_DIR = os.path.join(ROOT_DIR, "models")
 
 def get_available_tickers():
@@ -55,16 +55,19 @@ def index():
             return redirect(url_for('index'))
 
         try:
+            # --- Load scalers + model ---
             scaler_all, scaler_close, model = load_resources(ticker)
+
+            # --- Prepare features ---
             features, full_df = fetch_and_prepare(ticker)
 
             # --- Forecast ---
             days  = weeks * 5
             preds = recursive_forecast(features, scaler_all, scaler_close, model, days)
 
-            # --- Signals ---
-            current_close = float(full_df['Close'].iloc[-1])   # ensure scalar float
-            forecast_end  = float(preds[-1])                   # ensure scalar float
+            # --- Signals (force scalars) ---
+            current_close = float(full_df['Close'].iloc[-1])
+            forecast_end  = float(preds[-1])
             pct_change    = (forecast_end - current_close) / current_close
             signal, _     = get_signal(current_close, forecast_end, 0.02)
 
@@ -86,7 +89,7 @@ def index():
                 scores = [sia.polarity_scores(a['title'])['compound'] for a in articles]
                 sentiment = float(np.mean(scores)) if scores else 0.0
 
-            # --- Friendly Advice with reasoning
+            # --- Advice with reasoning ---
             advice_text = format_advice(
                 current=current_close,
                 predicted=forecast_end,
@@ -97,7 +100,7 @@ def index():
                 threshold=0.02
             )
 
-            # --- Persist query
+            # --- Persist query ---
             q = Query(
                 ticker        = ticker,
                 start_date    = datetime.fromisoformat(start_date).date(),
@@ -108,7 +111,7 @@ def index():
             db.session.add(q)
             db.session.commit()
 
-            # --- Build chart arrays
+            # --- Chart Data ---
             proc_csv = os.path.join(ROOT_DIR, 'data', 'processed', f'{ticker}_features.csv')
             hist_df  = pd.read_csv(proc_csv, index_col='Date', parse_dates=True)
             mask     = (
