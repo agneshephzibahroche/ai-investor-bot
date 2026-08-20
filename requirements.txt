@@ -7,3 +7,6 @@ tensorflow
 joblib
 nltk
 flask
+flask-sqlalchemy
+newsapi-python
+gunicorn

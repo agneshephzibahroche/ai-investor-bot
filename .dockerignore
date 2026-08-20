@@ -1,0 +1,15 @@
+.git
+.github
+__pycache__
+**/__pycache__
+*.pyc
+.venv
+venv
+*.egg-info
+.pytest_cache
+.mypy_cache
+data
+models
+*.h5
+*.save
+src/webapp/instance/*.db

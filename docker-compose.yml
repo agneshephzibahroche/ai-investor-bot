@@ -1,0 +1,18 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=false
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - NEWSAPI_KEY=${NEWSAPI_KEY:-}
+    volumes:
+      - ./models:/app/models:ro
+      - ./data:/app/data:ro
+      - advisor-db:/app/src/webapp/instance
+    restart: unless-stopped
+
+volumes:
+  advisor-db:

@@ -10,11 +10,10 @@ app = Flask(
     static_folder='static'
 )
 
-# ← Add this:
-app.secret_key = os.getenv('SECRET_KEY', 'dev-secret')  # replace 'dev-secret' with a strong key in prod
+app.secret_key = os.environ['SECRET_KEY'] if os.getenv('FLASK_ENV') == 'production' else os.getenv('SECRET_KEY', 'dev-secret')
 
-app.config['DEBUG'] = True
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///advisor.db'
+app.config['DEBUG'] = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///advisor.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -24,4 +23,4 @@ with app.app_context():
 from . import routes
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=app.config['DEBUG'], host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
