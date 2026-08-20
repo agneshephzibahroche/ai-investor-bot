@@ -38,6 +38,11 @@ NEWSAPI_KEY = os.getenv('NEWSAPI_KEY', '')
 newsapi     = NewsApiClient(api_key=NEWSAPI_KEY) if NEWSAPI_KEY else None
 
 
+@app.route('/health')
+def health():
+    return {'status': 'ok'}, 200
+
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     today         = datetime.today().date()

@@ -1,12 +1,12 @@
 # requirements.txt
-yfinance
-pandas
-numpy
-scikit-learn
-tensorflow
-joblib
-nltk
-flask
-flask-sqlalchemy
-newsapi-python
-gunicorn
+yfinance==1.6.0
+pandas==3.0.5
+numpy==2.4.6
+scikit-learn==1.9.0
+tensorflow==2.21.0
+joblib==1.5.3
+nltk==3.10.3
+flask==3.1.3
+flask-sqlalchemy==3.1.1
+newsapi-python==0.2.7
+gunicorn==26.1.0
