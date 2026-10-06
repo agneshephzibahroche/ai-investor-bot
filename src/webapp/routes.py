@@ -2,40 +2,62 @@
 
 import os
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from flask import render_template, request, flash, redirect, url_for, current_app
 from newsapi import NewsApiClient
 
 from src.webapp.app import app
 from src.webapp.models import db, Query
-from src.inference import ROOT_DIR, load_resources, fetch_and_prepare, recursive_forecast
-from src.advisor   import get_signal, format_advice, compute_last_indicators
+from src.inference import MODEL_DIR, load_resources, fetch_and_prepare, recursive_forecast
+from src.advisor   import get_signal, format_advice, compute_last_indicators, fetch_news_sentiment
 
-# ---------- USE LOCAL MODELS TO POPULATE TICKERS ----------
-MODEL_DIR = os.path.join(ROOT_DIR, "models")
+MAX_WEEKS        = 12   # each week is 5 sequential model calls
+SIGNAL_THRESHOLD = 0.02
+
 
 def get_available_tickers():
-    """Return tickers that have BOTH a model and a scaler in models/."""
+    """Return tickers that have a model and both scalers in models/."""
     if not os.path.isdir(MODEL_DIR):
         return []
-    have_models = {
+    files = set(os.listdir(MODEL_DIR))
+    tickers = [
         fn[len("lstm_"):-len(".h5")]
-        for fn in os.listdir(MODEL_DIR)
+        for fn in files
         if fn.startswith("lstm_") and fn.endswith(".h5")
-    }
-    have_scalers = {
-        fn[len("scaler_"):-len(".save")]
-        for fn in os.listdir(MODEL_DIR)
-        if fn.startswith("scaler_") and fn.endswith(".save")
-    }
-    return sorted(have_models & have_scalers)
+    ]
+    return sorted(
+        t for t in tickers
+        if f"scaler_{t}.save" in files and f"scaler_close_{t}.save" in files
+    )
 
-AVAILABLE_TICKERS = get_available_tickers()
 
 # Init NewsAPI (optional)
 NEWSAPI_KEY = os.getenv('NEWSAPI_KEY', '')
 newsapi     = NewsApiClient(api_key=NEWSAPI_KEY) if NEWSAPI_KEY else None
+
+
+def parse_form(form, tickers):
+    """Validate the query form. Returns (ticker, weeks, start, end) or raises ValueError."""
+    ticker = form.get('ticker', '').strip().upper()
+    if ticker not in tickers:
+        raise ValueError(f"No model available for “{ticker}”. Please select from the dropdown.")
+
+    try:
+        weeks = int(form.get('weeks', 1))
+    except ValueError:
+        raise ValueError("Horizon must be a whole number of weeks.")
+    if not 1 <= weeks <= MAX_WEEKS:
+        raise ValueError(f"Horizon must be between 1 and {MAX_WEEKS} weeks.")
+
+    try:
+        start = date.fromisoformat(form.get('start_date', ''))
+        end   = date.fromisoformat(form.get('end_date', ''))
+    except ValueError:
+        raise ValueError("Please enter valid start and end dates.")
+    if start >= end:
+        raise ValueError("Start date must be before end date.")
+
+    return ticker, weeks, start, end
 
 
 @app.route('/health')
@@ -45,18 +67,14 @@ def health():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    today         = datetime.today().date()
-    default_start = (today - timedelta(days=90)).isoformat()
-    default_end   = today.isoformat()
+    today   = datetime.today().date()
+    tickers = get_available_tickers()
 
     if request.method == 'POST':
-        ticker     = request.form.get('ticker', '').upper()
-        weeks      = int(request.form.get('weeks', 1))
-        start_date = request.form.get('start_date')
-        end_date   = request.form.get('end_date')
-
-        if ticker not in AVAILABLE_TICKERS:
-            flash(f"No model available for “{ticker}”. Please select from the dropdown.", 'danger')
+        try:
+            ticker, weeks, start_date, end_date = parse_form(request.form, tickers)
+        except ValueError as e:
+            flash(str(e), 'danger')
             return redirect(url_for('index'))
 
         try:
@@ -64,7 +82,11 @@ def index():
             scaler_all, scaler_close, model = load_resources(ticker)
 
             # --- Prepare features ---
-            features, full_df = fetch_and_prepare(ticker)
+            try:
+                features, full_df = fetch_and_prepare(ticker)
+            except ValueError as e:
+                flash(str(e), 'danger')
+                return redirect(url_for('index'))
 
             # --- Forecast ---
             days  = weeks * 5
@@ -73,26 +95,17 @@ def index():
             # --- Signals (force scalars) ---
             current_close = float(full_df['Close'].iloc[-1])
             forecast_end  = float(preds[-1])
-            pct_change    = (forecast_end - current_close) / current_close
-            signal, _     = get_signal(current_close, forecast_end, 0.02)
+            signal, pct_change = get_signal(current_close, forecast_end, SIGNAL_THRESHOLD)
 
             # --- Indicators ---
             inds = compute_last_indicators(full_df)
 
-            # --- News Sentiment ---
-            sentiment = 0.0
-            if newsapi:
-                from nltk.sentiment.vader import SentimentIntensityAnalyzer
-                sia      = SentimentIntensityAnalyzer()
-                articles = newsapi.get_everything(
-                    q=ticker,
-                    from_param=(today - timedelta(days=7)).isoformat(),
-                    language='en',
-                    sort_by='relevancy',
-                    page_size=20
-                )['articles']
-                scores = [sia.polarity_scores(a['title'])['compound'] for a in articles]
-                sentiment = float(np.mean(scores)) if scores else 0.0
+            # --- News Sentiment (optional; never fails the request) ---
+            try:
+                sentiment = fetch_news_sentiment(newsapi, ticker)
+            except Exception:
+                current_app.logger.exception("News sentiment lookup failed")
+                sentiment = None
 
             # --- Advice with reasoning ---
             advice_text = format_advice(
@@ -102,14 +115,14 @@ def index():
                 signal=signal,
                 indicators=inds,
                 sentiment=sentiment,
-                threshold=0.02
+                threshold=SIGNAL_THRESHOLD
             )
 
             # --- Persist query ---
             q = Query(
                 ticker        = ticker,
-                start_date    = datetime.fromisoformat(start_date).date(),
-                end_date      = datetime.fromisoformat(end_date).date(),
+                start_date    = start_date,
+                end_date      = end_date,
                 weeks         = weeks,
                 recommendation= signal
             )
@@ -117,18 +130,16 @@ def index():
             db.session.commit()
 
             # --- Chart Data ---
-            proc_csv = os.path.join(ROOT_DIR, 'data', 'processed', f'{ticker}_features.csv')
-            hist_df  = pd.read_csv(proc_csv, index_col='Date', parse_dates=True)
-            mask     = (
-                (hist_df.index.date >= datetime.fromisoformat(start_date).date()) &
-                (hist_df.index.date <= datetime.fromisoformat(end_date).date())
-            )
-            history = hist_df.loc[mask]
+            mask    = (full_df.index.date >= start_date) & (full_df.index.date <= end_date)
+            history = full_df.loc[mask]
+            if history.empty:
+                history = full_df.tail(90)
 
             hist_x = history.index.strftime('%Y-%m-%d').tolist()
             hist_y = history['Close'].tolist()
+            # The forecast always continues from the latest available close
             fc_x   = pd.bdate_range(
-                        start=history.index[-1] + timedelta(days=1),
+                        start=full_df.index[-1] + timedelta(days=1),
                         periods=len(preds)
                      ).strftime('%Y-%m-%d').tolist()
             fc_y   = preds
@@ -137,6 +148,7 @@ def index():
                 'result.html',
                 ticker     = ticker,
                 weeks      = weeks,
+                signal     = signal,
                 indicators = inds,
                 sentiment  = sentiment,
                 advice     = advice_text,
@@ -146,15 +158,17 @@ def index():
                 fc_y       = fc_y
             )
 
-        except Exception as e:
+        except Exception:
+            db.session.rollback()
             current_app.logger.exception("Error in / POST")
-            flash(f"Unexpected error: {e}", 'danger')
+            flash("Something went wrong while generating the forecast. Please try again.", 'danger')
             return redirect(url_for('index'))
 
     # GET → show form
     return render_template(
         'index.html',
-        tickers      = AVAILABLE_TICKERS,
-        default_start= default_start,
-        default_end  = default_end
+        tickers      = tickers,
+        max_weeks    = MAX_WEEKS,
+        default_start= (today - timedelta(days=90)).isoformat(),
+        default_end  = today.isoformat()
     )

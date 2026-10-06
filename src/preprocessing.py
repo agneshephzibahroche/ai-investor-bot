@@ -6,7 +6,7 @@ import joblib
 import yfinance as yf
 from sklearn.preprocessing import MinMaxScaler
 
-from src.feature_engineering import compute_indicators
+from src.feature_engineering import FEATURES, compute_indicators
 
 ROOT_DIR   = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 DATA_DIR   = os.path.join(ROOT_DIR, "data", "processed")
@@ -22,11 +22,7 @@ def preprocess_ticker(ticker: str):
     df = compute_indicators(df).dropna()
 
     # 2. Select all 11 engineered features
-    features = [
-        "Close", "High", "Low", "Open", "Volume",
-        "Return", "MA50", "MA200", "MACD", "Signal", "RSI"
-    ]
-    df = df[features]
+    df = df[FEATURES]
 
     # 3. Fit scalers
     scaler_all   = MinMaxScaler()

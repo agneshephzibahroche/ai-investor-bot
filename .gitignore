@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Secrets
+.env
+
+# Generated data and the local database (trained models in models/ are committed for deployment)
+data/
+*.npy
+instance/
+*.db

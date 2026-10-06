@@ -1,7 +1,6 @@
 # src/webapp/app.py
 import os
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from .models import db
 
 app = Flask(
@@ -15,6 +14,11 @@ app.secret_key = os.environ['SECRET_KEY'] if os.getenv('FLASK_ENV') == 'producti
 app.config['DEBUG'] = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///advisor.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Hugging Face shows the app inside an iframe, which needs cross-site session cookies
+if os.getenv('SPACE_ID'):
+    app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+    app.config['SESSION_COOKIE_SECURE'] = True
 
 db.init_app(app)
 with app.app_context():

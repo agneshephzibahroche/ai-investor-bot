@@ -40,6 +40,13 @@
       <div class="card p-4 shadow-lg">
         <h2 class="text-center mb-3">Advisor Bot</h2>
 
+        {% if not tickers %}
+        <div class="alert alert-warning" role="alert">
+          No trained models found in <code>models/</code>. Train one first,
+          e.g. <code>python scripts/batch_train_sp500_common.py</code>.
+        </div>
+        {% endif %}
+
         <form method="post">
           <div class="mb-3">
             <label class="form-label" for="ticker">Ticker</label>
@@ -67,6 +74,8 @@
               class="form-control"
               value="4"
               min="1"
+              max="{{ max_weeks }}"
+              required
             />
           </div>
 
@@ -99,6 +108,10 @@
           </button>
         </form>
       </div>
+
+      <p class="text-center text-muted small mt-3">
+        For educational use only. This is not financial advice.
+      </p>
     </div>
 
     <!-- Bootstrap JS Bundle -->

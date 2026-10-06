@@ -3,19 +3,22 @@
 import os
 import joblib
 import numpy as np
-import pandas as pd
 import yfinance as yf
-from tensorflow.keras.models import load_model
 from datetime import datetime, timedelta
 
-from src.feature_engineering import compute_indicators
+from src.feature_engineering import FEATURES, compute_indicators
 
-ROOT_DIR    = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-SEQ_LENGTH  = 60
-MODEL_DIR   = os.path.join(ROOT_DIR, "models")
+ROOT_DIR     = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+SEQ_LENGTH   = 60
+MODEL_DIR    = os.path.join(ROOT_DIR, "models")
+HISTORY_DAYS = 5 * 365  # enough for MA200 + the model window, plus chart history
+
 
 def load_resources(ticker: str):
     """Load scalers and LSTM model for a specific ticker."""
+    # Imported here so the web app and tests start without loading TensorFlow.
+    from tensorflow.keras.models import load_model
+
     scaler_all   = joblib.load(os.path.join(MODEL_DIR, f"scaler_{ticker}.save"))
     scaler_close = joblib.load(os.path.join(MODEL_DIR, f"scaler_close_{ticker}.save"))
     model = load_model(os.path.join(MODEL_DIR, f"lstm_{ticker}.h5"), compile=False)
@@ -24,10 +27,8 @@ def load_resources(ticker: str):
 
 def fetch_and_prepare(ticker: str):
     """Download data and compute features for the given ticker."""
-    lookback = SEQ_LENGTH + 200
-    days     = lookback * 2
-    end      = datetime.today()
-    start    = end - timedelta(days=days)
+    end   = datetime.today()
+    start = end - timedelta(days=HISTORY_DAYS)
 
     df = yf.download(
         ticker,
@@ -36,9 +37,11 @@ def fetch_and_prepare(ticker: str):
         progress=False,
         auto_adjust=True
     )
+    if df is None or df.empty:
+        raise ValueError(f"No price data returned for {ticker}")
 
-    df = compute_indicators(df)
-    df = df.dropna()
+    df = compute_indicators(df).dropna()
+    df = df[FEATURES]
 
     if len(df) < SEQ_LENGTH:
         raise ValueError(f"Not enough data for {ticker}")
@@ -68,9 +71,7 @@ def recursive_forecast(features: np.ndarray,
         scaled_pred = model.predict(X, verbose=0)[0, 0]
         inv         = scaler_close.inverse_transform([[scaled_pred]])[0, 0]
 
-        # ✅ Clamp: no negatives, and no >3× or <⅓× last_close
-        if inv < 0:
-            inv = max(inv, 0.01)
+        # Clamp to between ⅓× and 3× the last actual close
         inv = np.clip(inv, last_close * 0.33, last_close * 3.0)
 
         preds.append(float(inv))

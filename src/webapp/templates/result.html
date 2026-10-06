@@ -15,7 +15,7 @@
       href="{{ url_for('static', filename='style.css') }}"
     />
     <!-- Plotly -->
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   </head>
   <body class="bg-light">
     <!-- Navbar -->
@@ -65,7 +65,7 @@
               </li>
               <li class="list-group-item d-flex justify-content-between">
                 <span>Sentiment:</span>
-                <span>{{ sentiment|round(2) }}</span>
+                <span>{% if sentiment is none %}n/a{% else %}{{ sentiment|round(2) }}{% endif %}</span>
               </li>
             </ul>
           </div>
@@ -77,9 +77,9 @@
             </div>
             <div class="card-body">
               <div
-                class="alert {% if 'Buy' in advice %}alert-success {% elif 'Sell' in advice %}alert-danger {% else %}alert-secondary{% endif %}"
-              >
-                {{ advice|safe }}
+                class="alert {% if signal == 'Buy' %}alert-success {% elif signal == 'Sell' %}alert-danger {% else %}alert-secondary{% endif %}"
+                style="white-space: pre-line"
+              >{{ advice }}
               </div>
             </div>
           </div>
@@ -104,6 +104,11 @@
           ← New Query
         </a>
       </div>
+
+      <p class="text-center text-muted small mt-4">
+        Forecasts come from an experimental model and are for educational use
+        only. This is not financial advice.
+      </p>
     </div>
 
     <!-- Bootstrap JS -->
@@ -116,16 +121,10 @@
     <script>
       document.addEventListener('DOMContentLoaded', function() {
         // 1) Grab the data arrays directly from Jinja
-        const histX = {{ hist_x|tojson | safe }};
-        const histY = {{ hist_y|tojson | safe }};
-        const fcX   = {{ fc_x|tojson | safe }};
-        const fcY   = {{ fc_y|tojson | safe }};
-
-        // 2) Debug: print to console
-        console.log('History X:', histX);
-        console.log('History Y:', histY);
-        console.log('Forecast X:', fcX);
-        console.log('Forecast Y:', fcY);
+        const histX = {{ hist_x|tojson }};
+        const histY = {{ hist_y|tojson }};
+        const fcX   = {{ fc_x|tojson }};
+        const fcY   = {{ fc_y|tojson }};
 
         // 3) Build traces
         const traceHist = {
@@ -143,7 +142,7 @@
 
         // 4) Layout
         const layout = {
-          title: '{{ ticker }} Price',
+          title: {{ (ticker ~ ' Price')|tojson }},
           xaxis: { title: 'Date' },
           yaxis: { title: 'Close Price' }
         };

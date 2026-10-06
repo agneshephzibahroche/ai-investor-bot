@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup --system app && adduser --system --ingroup app --home /home/app app \
+RUN addgroup --system app && adduser --system --uid 1000 --ingroup app --home /home/app app \
     && mkdir -p /home/app && chown app:app /home/app
 
 WORKDIR /app
@@ -26,11 +26,13 @@ USER app
 
 ENV FLASK_ENV=production \
     FLASK_DEBUG=false \
-    PORT=5000
+    PORT=5000 \
+    WEB_CONCURRENCY=2
 
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3).status == 200 else 1)"
+    CMD python -c "import os,urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:' + os.environ['PORT'] + '/health', timeout=3).status == 200 else 1)"
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "src.webapp.app:app"]
+# Hosts such as Render set PORT; gunicorn reads the worker count from WEB_CONCURRENCY
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:$PORT --timeout 120 src.webapp.app:app"]

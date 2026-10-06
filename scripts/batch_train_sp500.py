@@ -21,7 +21,7 @@ def run_cmd(cmd: list[str]):
     Run a subprocess command, streaming output to console.
     """
     print(f"\n>>> Running: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=False, check=True)
+    subprocess.run(cmd, check=True)
 
 def main():
     python = sys.executable  # your venv’s python
@@ -33,11 +33,11 @@ def main():
         print(f"\n[{i}/{total}] Processing {tkr}...")
         try:
             # 1) feature engineering
-            run_cmd([python, "src/feature_engineering.py", "--ticker", tkr])
+            run_cmd([python, "-m", "src.feature_engineering", "--ticker", tkr])
             # 2) preprocessing
-            run_cmd([python, "src/preprocessing.py",    "--ticker", tkr])
+            run_cmd([python, "-m", "src.preprocessing",     "--ticker", tkr])
             # 3) training
-            run_cmd([python, "src/train.py",           "--ticker", tkr])
+            run_cmd([python, "-m", "src.train",             "--ticker", tkr])
         except subprocess.CalledProcessError:
             print(f"Error processing {tkr}! See trace:")
             traceback.print_exc()

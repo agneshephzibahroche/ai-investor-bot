@@ -1,7 +1,18 @@
-import pandas as pd
-from nltk.sentiment import SentimentIntensityAnalyzer
+from datetime import date, timedelta
+from typing import Optional
 
-sia = SentimentIntensityAnalyzer()
+import pandas as pd
+
+_sia = None
+
+
+def _get_sia():
+    # Built on first use: the VADER lexicon is only needed when scoring news.
+    global _sia
+    if _sia is None:
+        from nltk.sentiment import SentimentIntensityAnalyzer
+        _sia = SentimentIntensityAnalyzer()
+    return _sia
 
 
 def get_signal(current: float, predicted: float, threshold: float = 0.02):
@@ -23,10 +34,11 @@ def format_advice(current: float,
                   pct: float,
                   signal: str,
                   indicators: dict,
-                  sentiment: float,
+                  sentiment: Optional[float],
                   threshold: float = 0.02) -> str:
     """
     Generate user-friendly advice with reasoning from indicators and sentiment.
+    Pass sentiment=None when no news data is available.
     """
     reasoning = []
 
@@ -51,15 +63,16 @@ def format_advice(current: float,
         reasoning.append("MACD is negative, signaling possible downward pressure")
 
     # Sentiment logic
-    if sentiment > 0.2:
-        reasoning.append("news sentiment is generally positive")
-    elif sentiment < -0.2:
-        reasoning.append("news sentiment is mostly negative")
-    else:
-        reasoning.append("news sentiment is neutral")
+    if sentiment is not None:
+        if sentiment > 0.2:
+            reasoning.append("news sentiment is generally positive")
+        elif sentiment < -0.2:
+            reasoning.append("news sentiment is mostly negative")
+        else:
+            reasoning.append("news sentiment is neutral")
 
     return (
-        f"The analysis suggests a **{signal}**.\n\n"
+        f"The analysis suggests a {signal}.\n\n"
         f"The model predicts the price to move from ${current:.2f} "
         f"to ${predicted:.2f}, a change of {pct*100:.2f}%.\n\n"
         f"This decision is based on indicators: {', '.join(reasoning)}."
@@ -79,10 +92,25 @@ def compute_last_indicators(df: pd.DataFrame) -> dict:
     }
 
 
-def fetch_news_sentiment(ticker: str) -> float:
+def fetch_news_sentiment(newsapi, ticker: str, days: int = 7) -> Optional[float]:
     """
-    Very simple sentiment function (replace with NewsAPI if available).
+    Mean VADER compound score of recent headlines mentioning the ticker.
+    Returns None when there is no NewsAPI client or no headlines.
     """
-    headlines = [f"Company {ticker} sees record revenue growth"]
-    text = " ".join(headlines)
-    return sia.polarity_scores(text)["compound"]
+    if newsapi is None:
+        return None
+
+    articles = newsapi.get_everything(
+        q=ticker,
+        from_param=(date.today() - timedelta(days=days)).isoformat(),
+        language='en',
+        sort_by='relevancy',
+        page_size=20
+    )['articles']
+
+    titles = [a['title'] for a in articles if a.get('title')]
+    if not titles:
+        return None
+
+    sia = _get_sia()
+    return sum(sia.polarity_scores(t)['compound'] for t in titles) / len(titles)

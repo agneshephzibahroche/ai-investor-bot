@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: ai-investor-bot
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      # One worker: TensorFlow leaves little headroom in the free plan's 512 MB
+      - key: WEB_CONCURRENCY
+        value: "1"
