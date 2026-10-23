@@ -1,8 +1,10 @@
-FROM python:3.11-slim AS base
+FROM python:3.12-slim AS base
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Every dependency ships prebuilt wheels, so no compiler toolchain is needed;
+# just pull in OS security fixes released since the base image was built.
+RUN apt-get update && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --upgrade pip
 
 RUN addgroup --system app && adduser --system --uid 1000 --ingroup app --home /home/app app \
     && mkdir -p /home/app && chown app:app /home/app
