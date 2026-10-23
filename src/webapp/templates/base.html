@@ -14,13 +14,13 @@
     <meta property="og:title" content="{{ share_title }}" />
     <meta property="og:description" content="{{ share_desc }}" />
     <meta property="og:url" content="{{ request.base_url }}" />
-    <meta property="og:image" content="{{ url_for('static', filename='og.png', _external=True) }}" />
+    <meta property="og:image" content="{{ url_for('static', filename='og.png', v=2, _external=True) }}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="{{ share_title }}" />
     <meta name="twitter:description" content="{{ share_desc }}" />
-    <meta name="twitter:image" content="{{ url_for('static', filename='og.png', _external=True) }}" />
+    <meta name="twitter:image" content="{{ url_for('static', filename='og.png', v=2, _external=True) }}" />
     <meta name="theme-color" content="#0a0e17" />
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

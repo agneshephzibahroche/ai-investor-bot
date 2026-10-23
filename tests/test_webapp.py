@@ -138,7 +138,7 @@ def test_portfolio_rejects_bad_holdings(client, holdings, message):
 
 def test_share_preview_tags(client):
     home = client.get("/").get_data(as_text=True)
-    assert 'property="og:image" content="http://localhost/static/og.png"' in home
+    assert 'property="og:image" content="http://localhost/static/og.png?v=2"' in home
     assert "eight arms on the market, one big brain" in home
     page = client.get("/stock/TEST").get_data(as_text=True)
     assert 'content="TEST: AI forecast, chart &amp; analysis"' in page
