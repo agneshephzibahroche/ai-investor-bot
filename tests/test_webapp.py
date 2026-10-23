@@ -42,11 +42,11 @@ def test_health(client):
     assert resp.status_code == 200 and resp.get_json()["status"] == "ok"
 
 
-@pytest.mark.parametrize("path", ["/", "/stock/TEST", "/compare"])
+@pytest.mark.parametrize("path", ["/", "/stock/TEST", "/compare", "/portfolio", "/about"])
 def test_pages_render(client, path):
     resp = client.get(path)
     assert resp.status_code == 200
-    assert b"AI Investor" in resp.data
+    assert b"Smart Stocktopus" in resp.data
 
 
 def test_search_param_redirects_to_stock_page(client):
@@ -139,6 +139,12 @@ def test_portfolio_rejects_bad_holdings(client, holdings, message):
 def test_share_preview_tags(client):
     home = client.get("/").get_data(as_text=True)
     assert 'property="og:image" content="http://localhost/static/og.png"' in home
-    assert "smarter stock research" in home
+    assert "eight arms on the market, one big brain" in home
     page = client.get("/stock/TEST").get_data(as_text=True)
     assert 'content="TEST: AI forecast, chart &amp; analysis"' in page
+
+
+def test_about_page_shows_builder_and_model_stats(client):
+    page = client.get("/about").get_data(as_text=True)
+    assert "Built by" in page and "Agnes Hephzibah Roche" in page
+    assert "52.0%" in page  # direction accuracy from the model metadata

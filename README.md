@@ -1,5 +1,5 @@
 ---
-title: AI Investor Bot
+title: Smart Stocktopus
 emoji: 📈
 colorFrom: blue
 colorTo: indigo
@@ -8,9 +8,13 @@ app_port: 5000
 pinned: false
 ---
 
-# AI Investor
+# Smart Stocktopus 🐙
 
-A stock research web app with live market data, LSTM price forecasts with
+*Eight arms on the market. One big brain.*
+
+![Smart Stocktopus](src/webapp/static/og.png)
+
+Smart Stocktopus is a stock research web app with live market data, LSTM price forecasts with
 Monte Carlo confidence bands, strategy backtests, a technical scorecard and
 news sentiment. It works for any stock, ETF, index or crypto that Yahoo
 Finance lists.
@@ -18,6 +22,22 @@ Finance lists.
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/agneshephzibahroche/ai-investor-bot)
 
 > For educational use only. This is not financial advice.
+
+## Why an octopus?
+
+Octopuses are some of the smartest animals in the sea. They solve puzzles,
+open jars and use tools, and about two-thirds of their neurons sit in their
+arms, so each arm can explore on its own while one brain ties it all together.
+
+Smart Stocktopus works the same way: eight arms reaching into the market
+(live prices, AI forecasts, Monte Carlo ranges, a technical scorecard,
+strategy backtests, news sentiment, comparisons and your portfolio) and one
+brain making sense of it all.
+
+## Built by
+
+**Agnes Hephzibah Roche** ([GitHub](https://github.com/agneshephzibahroche)): data pipeline, model training,
+analytics and the web app. The About page in the app (`/about`) covers how it was built.
 
 ## Features
 

@@ -166,6 +166,12 @@ def portfolio_page():
     return render_template('portfolio.html')
 
 
+@app.route('/about')
+def about_page():
+    model = load_resources(UNIVERSAL)[1] if UNIVERSAL in available_models() else None
+    return render_template('about.html', model=model)
+
+
 # ---------------------------------------------------------------- API
 
 @app.route('/api/search')

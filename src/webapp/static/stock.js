@@ -23,7 +23,7 @@
   function renderHead(a) {
     const q = a.quote || {};
     currency = a.currency || q.currency; qtype = q.type;
-    document.title = `${SYMBOL} ${price(q.price, null)} · AI Investor`;
+    document.title = `${SYMBOL} ${price(q.price, null)} · Smart Stocktopus`;
     const starred = watchlist.has(SYMBOL);
     const p = a.profile || {};
     $('head').innerHTML = `

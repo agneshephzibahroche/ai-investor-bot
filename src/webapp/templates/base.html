@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>{% block title %}AI Investor{% endblock %} · AI Investor</title>
+    <title>{% block title %}Smart Stocktopus{% endblock %} · Smart Stocktopus</title>
     {# Pages override these blocks; they render only through self.<block>() below #}
     {% if false %}{% block share_title %}{% endblock %}{% block share_desc %}{% endblock %}{% endif %}
-    {% set share_title = self.share_title() | striptags or 'AI Investor: smarter stock research, powered by an LSTM' %}
+    {% set share_title = self.share_title() | striptags or 'Smart Stocktopus: eight arms on the market, one big brain' %}
     {% set share_desc = self.share_desc() | striptags or 'Live market data, AI price forecasts with confidence bands, strategy backtests and news sentiment for any stock, ETF or crypto.' %}
     <meta name="description" content="{{ share_desc }}" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="AI Investor" />
+    <meta property="og:site_name" content="Smart Stocktopus" />
     <meta property="og:title" content="{{ share_title }}" />
     <meta property="og:description" content="{{ share_desc }}" />
     <meta property="og:url" content="{{ request.base_url }}" />
@@ -22,7 +22,7 @@
     <meta name="twitter:description" content="{{ share_desc }}" />
     <meta name="twitter:image" content="{{ url_for('static', filename='og.png', _external=True) }}" />
     <meta name="theme-color" content="#0a0e17" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237c8cff'/><path d='M7 21l6-6 4 4 8-9' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
@@ -37,16 +37,15 @@
     <header class="topbar">
       <div class="container">
         <a class="brand" href="{{ url_for('index') }}">
-          <span class="brand-mark">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
-          </span>
-          AI Investor <small>beta</small>
+          <img class="brand-mark" src="{{ url_for('static', filename='logo.svg') }}" alt="" width="32" height="32" />
+          <span class="brand-name">Smart Stocktopus</span> <small>beta</small>
         </a>
         <nav class="nav">
           <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">Markets</a>
           <a href="{{ url_for('compare_page') }}" class="{{ 'active' if request.endpoint == 'compare_page' }}">Compare</a>
           <a href="{{ url_for('portfolio_page') }}" class="{{ 'active' if request.endpoint == 'portfolio_page' }}">Portfolio</a>
           <a href="{{ url_for('index') }}#watchlist">Watchlist</a>
+          <a href="{{ url_for('about_page') }}" class="{{ 'active' if request.endpoint == 'about_page' }}">About</a>
         </nav>
         <div class="spacer"></div>
         <form class="search" action="{{ url_for('index') }}" method="get" role="search" data-search>
@@ -69,7 +68,9 @@
     <footer>
       <div class="container">
         <span>Market data from Yahoo Finance, delayed and provided as-is. Forecasts are experimental and for education only. This is not financial advice.</span>
-        <span><a href="https://github.com/agneshephzibahroche/ai-investor-bot" class="muted" target="_blank" rel="noopener">Source on GitHub</a></span>
+        <span class="footer-links">Built by <a href="https://github.com/agneshephzibahroche" target="_blank" rel="noopener">Agnes Hephzibah Roche</a>
+          · <a href="{{ url_for('about_page') }}">About</a>
+          · <a href="https://github.com/agneshephzibahroche/ai-investor-bot" target="_blank" rel="noopener">Source</a></span>
       </div>
     </footer>
 

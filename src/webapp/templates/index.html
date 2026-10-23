@@ -47,6 +47,25 @@
   </div>
 </div>
 
+<div class="card story" style="margin-top:18px">
+  <img src="{{ url_for('static', filename='logo.svg') }}" alt="Smart Stocktopus mascot" width="104" height="104" />
+  <div>
+    <h2>Why an octopus?</h2>
+    <p class="muted">Octopuses are some of the smartest animals in the sea. They solve puzzles, open jars and use tools, and about
+      two-thirds of their neurons sit in their arms, so each arm can explore on its own while one brain ties it all together.
+      Smart Stocktopus works the same way: eight arms reaching into the market, one brain making sense of it.</p>
+    <div class="arms">
+      {% for n, label, href in [
+        (1, 'Live prices', url_for('index')), (2, 'AI forecasts', url_for('stock', symbol='NVDA') ~ '#forecast-card'),
+        (3, 'Monte Carlo ranges', url_for('stock', symbol='NVDA') ~ '#forecast-card'), (4, 'Technical scorecard', url_for('stock', symbol='NVDA')),
+        (5, 'Strategy backtests', url_for('stock', symbol='NVDA')), (6, 'News sentiment', url_for('stock', symbol='NVDA')),
+        (7, 'Compare', url_for('compare_page')), (8, 'Your portfolio', url_for('portfolio_page'))] %}
+      <a class="arm" href="{{ href }}"><span class="num">{{ n }}</span>{{ label }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
 <div class="card" style="margin-top:18px" id="model-card">
   <div class="card-h"><h2>About the AI model</h2><span class="pill ai">LSTM · runs in NumPy</span></div>
   <div class="grid grid-3" id="model-info"></div>
