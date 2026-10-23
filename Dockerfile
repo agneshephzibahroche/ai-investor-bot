@@ -3,8 +3,7 @@ FROM python:3.12-slim AS base
 # Every dependency ships prebuilt wheels, so no compiler toolchain is needed;
 # just pull in OS security fixes released since the base image was built.
 RUN apt-get update && apt-get upgrade -y \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir --upgrade pip
+    && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system app && adduser --system --uid 1000 --ingroup app --home /home/app app \
     && mkdir -p /home/app && chown app:app /home/app
@@ -12,7 +11,13 @@ RUN addgroup --system app && adduser --system --uid 1000 --ingroup app --home /h
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install the app's dependencies, then remove the packaging tools (pip,
+# setuptools and ensurepip's bundled wheels). The app never uses them at
+# runtime, and their vendored copies of urllib3/msgpack/setuptools are what
+# image scanners flag.
+RUN pip install --no-cache-dir -r requirements.txt \
+    && python -m pip uninstall -y setuptools wheel pip \
+    && rm -rf /usr/local/lib/python3.*/ensurepip
 
 COPY . .
 
