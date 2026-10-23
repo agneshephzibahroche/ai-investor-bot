@@ -38,4 +38,5 @@ with app.app_context():
 from . import routes  # noqa: E402,F401
 
 if __name__ == '__main__':
-    app.run(debug=app.config['DEBUG'], host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+    # Local dev only; set HOST=0.0.0.0 to expose it on your network. Production uses gunicorn or Vercel.
+    app.run(debug=app.config['DEBUG'], host=os.getenv('HOST', '127.0.0.1'), port=int(os.getenv('PORT', 5000)))

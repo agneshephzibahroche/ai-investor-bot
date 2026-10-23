@@ -4,7 +4,6 @@ import os
 import argparse
 
 import pandas as pd
-import yfinance as yf
 
 # Column order the LSTM is trained on. Close must stay first:
 # training targets and the recursive forecast both read it from index 0.
@@ -71,12 +70,9 @@ def main():
     PROC_CSV  = os.path.join(PROC_DIR, f'{ticker}_features.csv')
 
     # 1) Download *all* history (auto_adjust=True gives adjusted Close)
-    df_raw = flatten_columns(yf.download(
-        ticker,
-        period='max',
-        progress=False,
-        auto_adjust=True
-    ))
+    # Imported here so the web app (which imports this module) doesn't need it
+    from src.market_data import get_history
+    df_raw, _ = get_history(ticker, 'max')
 
     df_raw.to_csv(RAW_CSV)
     print(f"Raw data saved to {RAW_CSV} ({len(df_raw)} rows)")
