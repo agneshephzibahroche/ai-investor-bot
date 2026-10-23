@@ -5,14 +5,37 @@ import pandas as pd
 
 _sia = None
 
+# VADER is tuned for social media; these words carry clear meaning in market
+# headlines but are missing from (or neutral in) its stock lexicon.
+FINANCE_LEXICON = {
+    "soar": 2.5, "soars": 2.5, "soared": 2.5, "surge": 2.3, "surges": 2.3, "surged": 2.3,
+    "rally": 2.0, "rallies": 2.0, "rallied": 2.0, "jump": 1.6, "jumps": 1.6, "jumped": 1.6,
+    "gain": 1.5, "gains": 1.5, "climb": 1.4, "climbs": 1.4, "rebound": 1.5, "rebounds": 1.5,
+    "beat": 1.8, "beats": 1.8, "upgrade": 2.0, "upgrades": 2.0, "upgraded": 2.0,
+    "outperform": 1.8, "bullish": 2.2, "record": 1.2, "boost": 1.6, "boosts": 1.6,
+    "plunge": -2.6, "plunges": -2.6, "plunged": -2.6, "slump": -2.2, "slumps": -2.2,
+    "tumble": -2.2, "tumbles": -2.2, "tumbled": -2.2, "sink": -1.8, "sinks": -1.8,
+    "drop": -1.5, "drops": -1.5, "fall": -1.5, "falls": -1.5, "slide": -1.5, "slides": -1.5,
+    "crash": -3.0, "crashes": -3.0, "miss": -1.8, "misses": -1.8, "missed": -1.8,
+    "downgrade": -2.0, "downgrades": -2.0, "downgraded": -2.0, "underperform": -1.8,
+    "bearish": -2.2, "selloff": -2.2, "sell-off": -2.2, "lawsuit": -1.6, "probe": -1.4,
+    "layoffs": -1.8, "recall": -1.5, "warns": -1.6, "cut": -1.0, "cuts": -1.0,
+}
+
 
 def _get_sia():
     # Built on first use: the VADER lexicon is only needed when scoring news.
     global _sia
     if _sia is None:
-        from nltk.sentiment import SentimentIntensityAnalyzer
+        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
         _sia = SentimentIntensityAnalyzer()
+        _sia.lexicon.update(FINANCE_LEXICON)
     return _sia
+
+
+def score_headline(text: str) -> float:
+    """VADER compound score in [-1, 1] for one headline."""
+    return _get_sia().polarity_scores(text)["compound"]
 
 
 def get_signal(current: float, predicted: float, threshold: float = 0.02):
@@ -112,5 +135,4 @@ def fetch_news_sentiment(newsapi, ticker: str, days: int = 7) -> Optional[float]
     if not titles:
         return None
 
-    sia = _get_sia()
-    return sum(sia.polarity_scores(t)['compound'] for t in titles) / len(titles)
+    return sum(score_headline(t) for t in titles) / len(titles)

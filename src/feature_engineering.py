@@ -6,7 +6,7 @@ import argparse
 import pandas as pd
 import yfinance as yf
 
-# Column order the scalers and LSTM are trained on. Close must stay first:
+# Column order the LSTM is trained on. Close must stay first:
 # training targets and the recursive forecast both read it from index 0.
 FEATURES = [
     "Close", "High", "Low", "Open", "Volume",

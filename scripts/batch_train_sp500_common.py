@@ -39,6 +39,7 @@ def main():
             run_cmd([python, "-m", "src.feature_engineering", "--ticker", tkr])
             run_cmd([python, "-m", "src.preprocessing",     "--ticker", tkr])
             run_cmd([python, "-m", "src.train",             "--ticker", tkr])
+            run_cmd([python, "scripts/export_models.py", tkr])
         except subprocess.CalledProcessError:
             print(f"Error processing {tkr}, skipping.")
             traceback.print_exc()

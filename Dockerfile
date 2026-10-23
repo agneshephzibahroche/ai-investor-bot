@@ -10,12 +10,7 @@ RUN addgroup --system app && adduser --system --uid 1000 --ingroup app --home /h
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && python -m nltk.downloader -d /usr/share/nltk_data vader_lexicon punkt \
-    && python -c "import zipfile, glob; [zipfile.ZipFile(z).extractall(z.rsplit('/', 1)[0]) for z in glob.glob('/usr/share/nltk_data/**/*.zip', recursive=True)]" \
-    && chmod -R a+rX /usr/share/nltk_data
-
-ENV NLTK_DATA=/usr/share/nltk_data
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 

@@ -38,6 +38,7 @@ def main():
             run_cmd([python, "-m", "src.preprocessing",     "--ticker", tkr])
             # 3) training
             run_cmd([python, "-m", "src.train",             "--ticker", tkr])
+            run_cmd([python, "scripts/export_models.py", tkr])
         except subprocess.CalledProcessError:
             print(f"Error processing {tkr}! See trace:")
             traceback.print_exc()

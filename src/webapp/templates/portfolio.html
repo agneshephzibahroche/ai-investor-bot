@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Portfolio{% endblock %}
+{% block share_desc %}Track a portfolio's value, gains, allocation and risk against the S&P 500.{% endblock %}
+{% block head %}<script src="https://cdn.jsdelivr.net/npm/plotly.js-finance-dist-min@2.35.2/plotly-finance.min.js" defer></script>{% endblock %}
+{% block content %}
+<div class="quote-head">
+  <div>
+    <h1>My portfolio</h1>
+    <div class="meta">Saved only in this browser. Prices update every minute.</div>
+  </div>
+  <div class="seg" id="range">
+    <button data-v="6mo">6M</button><button data-v="ytd">YTD</button><button data-v="1y" class="on">1Y</button>
+    <button data-v="2y">2Y</button><button data-v="5y">5Y</button>
+  </div>
+</div>
+
+<form class="card add-form" id="add-form">
+  <div class="search" data-search="custom" id="pf-search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="pf-symbol" placeholder="Ticker, e.g. AAPL" autocomplete="off" aria-label="Ticker" required />
+  </div>
+  <input class="field" id="pf-shares" type="number" step="any" min="0" placeholder="Shares" aria-label="Shares" required />
+  <input class="field" id="pf-cost" type="number" step="any" min="0" placeholder="Avg cost (optional)" aria-label="Average cost per share" />
+  <button class="btn primary" type="submit">Add holding</button>
+</form>
+
+<div id="empty" class="card hidden" style="text-align:center;margin-top:18px;padding:40px 18px">
+  <h2 style="margin-top:0">No holdings yet</h2>
+  <p class="muted">Add what you own above, or load an example to see how it works.</p>
+  <button class="btn primary" id="sample">Load sample portfolio</button>
+</div>
+
+<div id="content" class="hidden">
+  <div class="stats" id="summary" style="margin-top:18px"></div>
+
+  <div class="grid grid-3" style="margin-top:18px">
+    <div class="card span-2">
+      <div class="card-h"><h2>Performance vs S&amp;P 500</h2><span class="sub">Current holdings, held over the whole period</span></div>
+      <div class="chart mid" id="perf-chart"><div class="skeleton sk-block"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Allocation</h2></div>
+      <div class="chart mid" id="alloc-chart"><div class="skeleton sk-block"></div></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <div class="card-h"><h2>Holdings</h2><span class="sub" id="risk-note"></span></div>
+    <div class="table-scroll"><table class="tbl" id="holdings"></table></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='portfolio.js') }}" defer></script>{% endblock %}

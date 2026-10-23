@@ -1,0 +1,16 @@
+.venv/
+venv/
+.github/
+data/
+instance/
+notebooks/
+tests/
+scripts/
+*.db
+*.h5
+*.npy
+Dockerfile
+docker-compose.yml
+render.yaml
+preprocess_train_sp500.py
+requirements-train.txt

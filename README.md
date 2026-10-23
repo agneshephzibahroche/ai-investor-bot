@@ -8,64 +8,120 @@ app_port: 5000
 pinned: false
 ---
 
-# AI Investor Bot
+# AI Investor
 
-A Flask web app that forecasts a stock's closing price with a per-ticker LSTM
-and turns the forecast into a Buy / Hold / Sell signal, explained with
-technical indicators (MA50/MA200, MACD, RSI) and optional news sentiment.
+A stock research web app with live market data, LSTM price forecasts with
+Monte Carlo confidence bands, strategy backtests, a technical scorecard and
+news sentiment. It works for any stock, ETF, index or crypto that Yahoo
+Finance lists.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/agneshephzibahroche/ai-investor-bot)
 
 > For educational use only. This is not financial advice.
 
+## Features
+
+- **Markets dashboard**: live ticker tape; tiles with sparklines for indices, crypto, gold, oil, yields and FX; a sector heatmap; top gainers and losers among 40 mega-caps; a watchlist saved in your browser; and the tickers most forecast on the site.
+- **Stock pages** (`/stock/NVDA`)
+  - Candlestick or line chart with MA50/MA200, volume and an RSI or MACD panel.
+  - Key stats: 52-week range, volatility, Sharpe, beta vs the S&P 500, drawdowns and trailing returns.
+- **AI forecast**: a 1–12 week LSTM path drawn on top of a Monte Carlo cone (50% and 90% ranges), with a Buy/Hold/Sell signal, plain-English reasoning and the model's live track record against a naive baseline.
+- **Technical scorecard**: seven classic signals combined into a −100…+100 gauge, each one explained.
+- **Strategy backtest**: golden cross, MACD crossover, RSI mean reversion and trend following against buy & hold, over 1–8 years. Trading costs are included, and signals act on the next session, so there is no look-ahead.
+- **News sentiment**: recent headlines scored with VADER plus a finance-specific word list.
+- **Compare** (`/compare`): rebased performance for up to six tickers, a risk/return table and a correlation matrix, with presets such as Big tech or Crypto vs S&P.
+- **Portfolio** (`/portfolio`): add holdings with an optional average cost to see total value, today's change, gain/loss, allocation, performance against the S&P 500, volatility, beta and diversification. Holdings are saved in your browser.
+- **UI**: dark and light themes, a mobile layout, ticker search with autocomplete, and `/` to focus search.
+
 ## How it works
 
-1. `src/feature_engineering.py` downloads price history from Yahoo Finance and computes the indicators.
-2. `src/preprocessing.py` scales the 11 features and builds 60-day sequences.
-3. `src/train.py` trains an LSTM per ticker and saves it to `models/`.
-4. `src/webapp/` serves the form, runs a day-by-day forecast (`src/inference.py`) and renders the advice (`src/advisor.py`).
+| Piece | File |
+| --- | --- |
+| Market data: Yahoo Finance JSON endpoints via `requests`, cached in-process; optional Twelve Data fallback | `src/market_data.py` |
+| Indicators (MA50/200, MACD, RSI) | `src/feature_engineering.py` |
+| Training data: 60-day windows normalised to the last close, next-day log return as the target | `src/preprocessing.py` |
+| Model training (TensorFlow, offline) | `src/train.py` |
+| Keras → NumPy export, scored on the held-out test split | `scripts/export_models.py` |
+| LSTM forward pass in pure NumPy, used at runtime | `src/nn.py` |
+| Recursive multi-day forecast | `src/inference.py` |
+| Monte Carlo, backtests, risk stats, scorecard, compare | `src/analytics.py` |
+| Signal and explanation, headline sentiment | `src/advisor.py` |
+| Flask pages and JSON API | `src/webapp/` |
 
-## Setup
+**Why NumPy at runtime?** TensorFlow is over 1 GB installed, far above
+Vercel's 250 MB function limit. The trained weights are exported to
+`models/universal.npz` (120 KB), and `src/nn.py` replays the LSTM in NumPy. It
+matches Keras to within 1e-7, and the deployed dependencies come to about 125 MB.
+
+**The model.** One "universal" LSTM (64 → 32 units) trained on ten years of 20
+large caps and ETFs. Inputs are scale-free, so it can be applied to any ticker.
+On its held-out test set it gets next-day direction right about 52% of the time
+and matches the naive "tomorrow equals today" price error. That is realistic
+for daily stock prediction, and the app says so instead of hiding it. Each
+forecast also shows a Monte Carlo range and the model's recent track record.
+
+### API
+
+All endpoints return JSON and send `Cache-Control: s-maxage` headers, so
+Vercel's CDN absorbs repeat traffic.
+
+| Endpoint | |
+| --- | --- |
+| `GET /api/market` | Overview, sectors, movers, model stats, trending |
+| `GET /api/quotes?symbols=AAPL,MSFT` | Quotes with intraday sparklines |
+| `GET /api/search?q=nvidia` | Ticker search |
+| `GET /api/analysis/<sym>` | History + indicators, stats, returns, scorecard |
+| `GET /api/forecast/<sym>?weeks=4` | LSTM + Monte Carlo forecast, signal, advice |
+| `GET /api/backtest/<sym>?years=3` | Strategy equity curves and stats |
+| `GET /api/news/<sym>` | Headlines with sentiment |
+| `GET /api/compare?symbols=A,B&range=1y` | Rebased series, stats, correlations |
+| `GET /health` | Health check |
+
+## Deploy to Vercel
+
+1. Push this repo to GitHub, then import it at [vercel.com/new](https://vercel.com/new), or click the button above.
+2. Keep the defaults. `vercel.json` routes every request to the Flask app in `api/index.py`, and Vercel installs `requirements.txt` on Python 3.12.
+3. Optional environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Persist the "trending" forecast log (e.g. a Neon/Supabase Postgres URL; add `psycopg[binary]` to `requirements.txt`). Without it, SQLite in `/tmp` is used and resets on cold starts. |
+| `TWELVEDATA_API_KEY` | Fallback price history if Yahoo is unreachable. |
+| `NEWSAPI_KEY` | Extra news source for sentiment when Yahoo has no headlines. |
+| `SECRET_KEY` | Flask session key (required when `FLASK_ENV=production`). |
+
+Or from the CLI:
+
+```bash
+npm i -g vercel
+vercel --prod
+```
+
+## Run locally
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate        # Windows; use `source .venv/bin/activate` elsewhere
 pip install -r requirements.txt
-python -m nltk.downloader vader_lexicon
-```
-
-## Train models
-
-The app only offers tickers that have a trained model in `models/`.
-
-```bash
-# one ticker
-python -m src.preprocessing --ticker AAPL
-python -m src.train --ticker AAPL
-
-# ten popular tickers
-python scripts/batch_train_sp500_common.py
-```
-
-## Run
-
-```bash
 flask --app src.webapp.app run
 ```
 
 Then open http://127.0.0.1:5000.
 
-| Variable       | Purpose                                                        |
-| -------------- | -------------------------------------------------------------- |
-| `SECRET_KEY`   | Flask session key. Required when `FLASK_ENV=production`.       |
-| `NEWSAPI_KEY`  | Optional. Enables news sentiment via [NewsAPI](https://newsapi.org). |
-| `DATABASE_URL` | Optional. Defaults to a local SQLite file.                     |
+## Retrain the model
 
-### Docker
+Training needs TensorFlow, so it uses a separate requirements file:
 
 ```bash
-SECRET_KEY=change-me docker compose up --build
+pip install -r requirements-train.txt
+python -m src.preprocessing           # 10 years of the 20-ticker universe
+python -m src.train                   # writes models/lstm_universal.h5
+python scripts/export_models.py       # writes models/universal.npz (what the app loads)
 ```
 
-`models/` and `data/` are mounted read-only from the host, so train first.
+To give one ticker its own model, pass `--ticker NVDA` to the first two
+commands and then run `python scripts/export_models.py NVDA`. The app prefers
+a ticker's own model over the universal one.
 
 ## Tests
 
@@ -74,22 +130,10 @@ pip install pytest
 pytest
 ```
 
-## Deploy to Hugging Face Spaces
+The tests mock all market data, so they run offline.
 
-The block at the top of this file configures a Docker Space. Train the models
-you want to offer first (they are copied into the image from `models/`), create
-a Space with the **Docker** SDK, add `SECRET_KEY` (and optionally `NEWSAPI_KEY`)
-under *Settings → Variables and secrets*, then upload the project (needs `pip install huggingface_hub` and `hf auth login`):
+## Other hosts
 
-```bash
-python -c "from huggingface_hub import upload_folder; upload_folder(repo_id='<username>/<space-name>', repo_type='space', folder_path='.', ignore_patterns=['.venv/*', '.git/*', 'data/*', '**/__pycache__/*', 'instance/*', 'src/webapp/instance/*'])"
-```
-
-The Space's disk is reset on every restart, so the query log does not persist.
-
-## Deploy to Render
-
-`render.yaml` describes the service. Commit the trained models in `models/`,
-push to GitHub, then in Render choose **New → Blueprint** and pick this repo.
-`SECRET_KEY` is generated automatically; add `NEWSAPI_KEY` under *Environment*
-if you want news sentiment.
+- **Docker**: `SECRET_KEY=change-me docker compose up --build`
+- **Render**: `render.yaml` describes the service. Choose **New → Blueprint** and pick this repo.
+- **Hugging Face Spaces**: the front matter at the top of this file configures a Docker Space.

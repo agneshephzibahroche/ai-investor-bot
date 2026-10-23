@@ -1,0 +1,5 @@
+# Training and model export: pip install -r requirements-train.txt
+-r requirements.txt
+tensorflow==2.21.0
+h5py==3.14.0
+yfinance==1.6.0

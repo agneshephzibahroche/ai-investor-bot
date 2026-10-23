@@ -1,123 +1,55 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Financial Advisor Bot</title>
-    <!-- Bootstrap CSS -->
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-      crossorigin="anonymous"
-    />
-    <!-- Custom styles -->
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='style.css') }}"
-    />
-  </head>
-  <body
-    class="d-flex align-items-center justify-content-center min-vh-100 bg-light"
-  >
-    <!-- Container for flashes and card -->
-    <div class="w-100" style="max-width: 420px">
-      <!-- Flash messages -->
-      {% with messages = get_flashed_messages(with_categories=true) %} {% if
-      messages %} {% for category, msg in messages %}
-      <div
-        class="alert alert-{{ 'danger' if category=='danger' else category }} alert-dismissible fade show"
-        role="alert"
-      >
-        {{ msg }}
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="alert"
-        ></button>
-      </div>
-      {% endfor %} {% endif %} {% endwith %}
+{% extends 'base.html' %}
+{% block title %}Markets{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="pill" style="margin-bottom:16px"><span class="status-dot" id="mkt-dot"></span> <span id="mkt-status">US market</span></div>
+  <h1>Smarter stock research,<br /><span>powered by an LSTM.</span></h1>
+  <p>Live prices, AI price forecasts with confidence bands, strategy backtests and news sentiment for any stock, ETF or crypto.</p>
+  <form class="search lg" action="{{ url_for('index') }}" method="get" role="search" data-search>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input name="ticker" placeholder="Try NVDA, Tesla, BTC-USD, SPY…" autocomplete="off" aria-label="Search any ticker" />
+  </form>
+  <div class="chips">
+    {% for t in ['AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN', 'META', 'BTC-USD', 'SPY'] %}
+    <a class="chip" href="{{ url_for('stock', symbol=t) }}">{{ t }}</a>
+    {% endfor %}
+  </div>
+</section>
 
-      <!-- Main card -->
-      <div class="card p-4 shadow-lg">
-        <h2 class="text-center mb-3">Advisor Bot</h2>
+<h2 class="section-title">Market overview</h2>
+<div class="tiles" id="overview">
+  {% for _ in range(11) %}<div class="tile"><div class="skeleton sk-line" style="width:50%"></div><div class="skeleton sk-line"></div><div class="skeleton" style="height:34px"></div></div>{% endfor %}
+</div>
 
-        {% if not tickers %}
-        <div class="alert alert-warning" role="alert">
-          No trained models found in <code>models/</code>. Train one first,
-          e.g. <code>python scripts/batch_train_sp500_common.py</code>.
-        </div>
-        {% endif %}
+<div class="grid grid-3" style="margin-top:18px">
+  <div class="card span-2">
+    <div class="card-h"><h2>Sector performance</h2><span class="sub">SPDR sector ETFs · today</span></div>
+    <div class="heatmap" id="sectors"><div class="skeleton sk-block" style="grid-column:1/-1;min-height:170px"></div></div>
+  </div>
+  <div class="card" id="watchlist">
+    <div class="card-h"><h2>★ Your watchlist</h2><span class="sub">saved in this browser</span></div>
+    <div class="list" id="watch-list"><div class="skeleton sk-line"></div><div class="skeleton sk-line"></div><div class="skeleton sk-line"></div></div>
+  </div>
+</div>
 
-        <form method="post">
-          <div class="mb-3">
-            <label class="form-label" for="ticker">Ticker</label>
-            <input
-              list="tickers"
-              id="ticker"
-              name="ticker"
-              class="form-control"
-              placeholder="Select or type…"
-              required
-            />
-            <datalist id="tickers">
-              {% for t in tickers %}
-              <option value="{{ t }}">{{ t }}</option>
-              {% endfor %}
-            </datalist>
-          </div>
+<div class="grid grid-3" style="margin-top:18px">
+  <div class="card">
+    <div class="card-h"><h2>Top gainers</h2><span class="sub">40 mega-caps</span></div>
+    <div class="list" id="gainers"></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><h2>Top losers</h2><span class="sub">40 mega-caps</span></div>
+    <div class="list" id="losers"></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><h2>Trending here</h2><span class="sub">most forecast on this site</span></div>
+    <div class="list" id="trending"></div>
+  </div>
+</div>
 
-          <div class="mb-3">
-            <label class="form-label" for="weeks">Horizon (weeks)</label>
-            <input
-              type="number"
-              id="weeks"
-              name="weeks"
-              class="form-control"
-              value="4"
-              min="1"
-              max="{{ max_weeks }}"
-              required
-            />
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label" for="start_date">Start Date</label>
-            <input
-              type="date"
-              id="start_date"
-              name="start_date"
-              class="form-control"
-              value="{{ default_start }}"
-              required
-            />
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label" for="end_date">End Date</label>
-            <input
-              type="date"
-              id="end_date"
-              name="end_date"
-              class="form-control"
-              value="{{ default_end }}"
-              required
-            />
-          </div>
-
-          <button type="submit" class="btn btn-primary w-100">
-            Get Advice
-          </button>
-        </form>
-      </div>
-
-      <p class="text-center text-muted small mt-3">
-        For educational use only. This is not financial advice.
-      </p>
-    </div>
-
-    <!-- Bootstrap JS Bundle -->
-    <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
-      crossorigin="anonymous"
-    ></script>
-  </body>
-</html>
+<div class="card" style="margin-top:18px" id="model-card">
+  <div class="card-h"><h2>About the AI model</h2><span class="pill ai">LSTM · runs in NumPy</span></div>
+  <div class="grid grid-3" id="model-info"></div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='dashboard.js') }}"></script>{% endblock %}

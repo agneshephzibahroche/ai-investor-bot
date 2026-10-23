@@ -1,84 +1,81 @@
 # src/inference.py
 
 import os
-import joblib
+from functools import lru_cache
+
 import numpy as np
-import yfinance as yf
-from datetime import datetime, timedelta
+import pandas as pd
 
 from src.feature_engineering import FEATURES, compute_indicators
+from src.market_data import get_history
+from src.nn import load_bundle
+from src.preprocessing import SEQ_LENGTH, normalize_window
 
 ROOT_DIR     = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-SEQ_LENGTH   = 60
 MODEL_DIR    = os.path.join(ROOT_DIR, "models")
-HISTORY_DAYS = 5 * 365  # enough for MA200 + the model window, plus chart history
+UNIVERSAL    = "universal"
+OHLCV        = ["Open", "High", "Low", "Close", "Volume"]
+MAX_DAILY_MOVE = 0.10  # cap each predicted day at ±10%
+HISTORY_ROWS = 300     # MA200 + the model window, with room to spare
 
 
-def load_resources(ticker: str):
-    """Load scalers and LSTM model for a specific ticker."""
-    # Imported here so the web app and tests start without loading TensorFlow.
-    from tensorflow.keras.models import load_model
+def available_models():
+    """Names of exported NumPy bundles in models/ (tickers and/or 'universal')."""
+    if not os.path.isdir(MODEL_DIR):
+        return []
+    return sorted(fn[:-len(".npz")] for fn in os.listdir(MODEL_DIR) if fn.endswith(".npz"))
 
-    scaler_all   = joblib.load(os.path.join(MODEL_DIR, f"scaler_{ticker}.save"))
-    scaler_close = joblib.load(os.path.join(MODEL_DIR, f"scaler_close_{ticker}.save"))
-    model = load_model(os.path.join(MODEL_DIR, f"lstm_{ticker}.h5"), compile=False)
-    return scaler_all, scaler_close, model
+
+def model_for(ticker: str):
+    """A ticker's own model if one was trained, otherwise the universal one."""
+    models = available_models()
+    if ticker in models:
+        return ticker
+    return UNIVERSAL if UNIVERSAL in models else None
+
+
+@lru_cache(maxsize=16)
+def load_resources(name: str):
+    """(model, metadata) for a bundle in models/ (see src/nn.py)."""
+    return load_bundle(os.path.join(MODEL_DIR, f"{name}.npz"))
 
 
 def fetch_and_prepare(ticker: str):
-    """Download data and compute features for the given ticker."""
-    end   = datetime.today()
-    start = end - timedelta(days=HISTORY_DAYS)
-
-    df = yf.download(
-        ticker,
-        start=start.strftime("%Y-%m-%d"),
-        end=end.strftime("%Y-%m-%d"),
-        progress=False,
-        auto_adjust=True
-    )
-    if df is None or df.empty:
+    """Raw OHLCV history and the model-ready feature frame for a ticker."""
+    raw, _ = get_history(ticker, "5y")
+    if raw is None or raw.empty:
         raise ValueError(f"No price data returned for {ticker}")
 
-    df = compute_indicators(df).dropna()
-    df = df[FEATURES]
-
-    if len(df) < SEQ_LENGTH:
+    features = compute_indicators(raw).dropna()[FEATURES]
+    if len(features) < SEQ_LENGTH:
         raise ValueError(f"Not enough data for {ticker}")
-
-    window_df = df.tail(SEQ_LENGTH)
-    return window_df.values, df
+    return raw, features
 
 
-def recursive_forecast(features: np.ndarray,
-                       scaler_all,
-                       scaler_close,
-                       model,
-                       horizon_days: int):
+def predict_return(model, window: np.ndarray, target_scale: float) -> float:
+    """Next-day log return predicted from one raw (SEQ_LENGTH, 11) window."""
+    X = normalize_window(window)[np.newaxis]
+    return float(model.predict(X, verbose=0)[0, 0]) / target_scale
+
+
+def recursive_forecast(raw: pd.DataFrame, model, horizon_days: int,
+                       target_scale: float = 10.0):
     """
-    Forecast future prices day by day using the trained LSTM.
-    Adds sanity checks to avoid negative or unrealistic outputs.
+    Forecast closes day by day: predict tomorrow's return, append that day to
+    the price history, recompute the indicators and repeat.
     """
-    window = features.copy()
-    preds  = []
+    hist = raw[OHLCV].dropna().tail(HISTORY_ROWS).copy()
+    last_close = float(hist["Close"].iloc[-1])
+    avg_volume = float(hist["Volume"].tail(20).mean())
+    future = pd.bdate_range(start=hist.index[-1] + pd.Timedelta(days=1), periods=horizon_days)
+    preds = []
 
-    last_close = window[-1, 0]  # last actual close price
-
-    for _ in range(horizon_days):
-        scaled_win  = scaler_all.transform(window)
-        X           = scaled_win.reshape(1, SEQ_LENGTH, -1)
-
-        scaled_pred = model.predict(X, verbose=0)[0, 0]
-        inv         = scaler_close.inverse_transform([[scaled_pred]])[0, 0]
-
-        # Clamp to between ⅓× and 3× the last actual close
-        inv = np.clip(inv, last_close * 0.33, last_close * 3.0)
-
-        preds.append(float(inv))
-
-        # update for next step
-        new_row = window[-1].copy()
-        new_row[0] = inv
-        window = np.vstack([window[1:], new_row])
+    for day in future:
+        window = compute_indicators(hist).dropna()[FEATURES].values[-SEQ_LENGTH:]
+        r = np.clip(predict_return(model, window, target_scale), -MAX_DAILY_MOVE, MAX_DAILY_MOVE)
+        # Keep the whole path within ⅓× and 3× the last actual close
+        close = float(np.clip(window[-1, 0] * np.exp(r), last_close * 0.33, last_close * 3.0))
+        preds.append(close)
+        hist.loc[day] = [close, close, close, close, avg_volume]
 
     return preds
